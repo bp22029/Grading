@@ -1,0 +1,36 @@
+# ===== 秘密情報 =====
+.env
+.env.local
+.env.*.local
+
+# ===== 個人情報を含むファイル =====
+# 提出物(万が一ローカルコピーがあった場合)
+Submitted files/
+# 採点結果サマリ
+grading_summary/
+# 各学生フォルダ内の採点結果(再帰的に除外)
+**/grading_result.json
+**/grading_result.md
+work_grading.zip
+results
+sample3
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+test_single.py
+
+# ===== IDE =====
+.vscode/
+.idea/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== その他 =====
+result.md
