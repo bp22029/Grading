@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 # ============================================================
 # 設定
 # ============================================================
-load_dotenv()  # .envファイルから環境変数を読み込む
+load_dotenv(override=True)  # .envファイルから環境変数を読み込む
 
 def _require_env(key: str) -> str:
     """必須の環境変数を取得。未設定なら明確なエラーで停止する。"""
@@ -66,14 +66,17 @@ SKIP_ALREADY_GRADED = False
 # None  : 全員を採点する（本番運用）
 # 整数  : 指定人数まで採点したら処理を打ち切る（例: 3 で3人分のみ採点）
 # 注意: 「未提出」「採点済みスキップ」はカウントされず、実際に採点した人数のみカウントする
-GRADE_LIMIT = 6
+GRADE_LIMIT = 10
 
 # ディレクトリ
 #SUBMITTED_DIR = Path("./Submitted files")           # 提出物のルート
 SUBMITTED_DIR  = Path(os.getenv("SUBMITTED_DIR", "./Submitted files"))
 CRITERIA_DIR = Path("./grading_criteria")           # 採点基準のルート
-SUMMARY_DIR = Path("./grading_summary")             # 全体集計の保存先
+SUMMARY_DIR = Path(os.getenv("SUMMARY_DIR", "./grading_summary"))  # 全体集計の保存先
 SUMMARY_DIR.mkdir(exist_ok=True)
+
+# 学生名簿CSV（1列目: ローマ字氏名, 2列目: 漢字氏名）
+STUDENT_LIST_PATH = Path(os.getenv("STUDENT_LIST_PATH", "./student_list.csv"))
 
 # 採点結果ファイル名（各学生の課題フォルダ内に保存される）
 RESULT_JSON_NAME = "grading_result.json"            # 機械可読（再処理用）
@@ -139,6 +142,22 @@ def build_prompt(criteria_text: str) -> str:
 
 
 # ============================================================
+# 学生名簿
+# ============================================================
+def load_student_list(csv_path: Path) -> list[str]:
+    """student_list.csvから漢字氏名の一覧を読み込む（2列目）。"""
+    if not csv_path.exists():
+        raise FileNotFoundError(f"学生名簿が見つかりません: {csv_path}")
+    names = []
+    with csv_path.open(encoding="utf-8") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) >= 2 and row[1].strip():
+                names.append(row[1].strip())
+    return names
+
+
+# ============================================================
 # ディレクトリ走査
 # ============================================================
 def parse_version_number(version_dir: Path) -> int:
@@ -181,8 +200,9 @@ def find_latest_submission(student_assignment_dir: Path) -> Path | None:
 
 def collect_students(target: str) -> list[dict]:
     """
-    Submitted files/ 配下の学生をすべて走査して
+    student_list.csvの順番に従って学生一覧を取得し、
     指定課題の提出ファイル情報をまとめる。
+    名簿に載っているが提出フォルダが存在しない学生は除外する（スキップ）。
 
     Returns:
         [
@@ -197,13 +217,21 @@ def collect_students(target: str) -> list[dict]:
     if not SUBMITTED_DIR.exists():
         raise FileNotFoundError(f"提出物フォルダが存在しません: {SUBMITTED_DIR}")
 
-    student_dirs = sorted([d for d in SUBMITTED_DIR.iterdir() if d.is_dir()])
+    student_names = load_student_list(STUDENT_LIST_PATH)
+
+    # 提出フォルダ名を辞書化（高速照合用）
+    existing_dirs = {d.name: d for d in SUBMITTED_DIR.iterdir() if d.is_dir()}
+
     students = []
-    for sdir in student_dirs:
+    for name in student_names:
+        sdir = existing_dirs.get(name)
+        if sdir is None:
+            # 名簿にいるが提出フォルダが存在しない → 除外
+            continue
         assignment_dir = sdir / target
         submission = find_latest_submission(assignment_dir)
         students.append({
-            "name": sdir.name,
+            "name": name,
             "assignment_dir": assignment_dir,
             "submission": submission,
         })
@@ -471,6 +499,10 @@ def is_already_graded(assignment_dir: Path) -> bool:
 # ============================================================
 def main():
     print(f"=" * 70)
+    print(f"DEBUG: MODEL_NAME = {MODEL_NAME}") 
+    print(f"DEBUG: API_BASE_URL = {API_BASE_URL}") 
+    print(f"採点対象課題: {TARGET_ASSIGNMENT}")
+    print(f"=" * 70)
     print(f"採点対象課題: {TARGET_ASSIGNMENT}")
     print(f"採点済みスキップ: {'ON（既存の採点はスキップ）' if SKIP_ALREADY_GRADED else 'OFF（全員を再採点・上書き）'}")
     if GRADE_LIMIT is not None:
@@ -512,7 +544,7 @@ def main():
                 "氏名": name,
                 "状態": "未提出",
                 "提出ファイル": "",
-                "点数": "",
+                "点数": 0,
                 "評価理由": "",
                 "フィードバック": "",
             })
