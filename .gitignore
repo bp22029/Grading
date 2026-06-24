@@ -1,5 +1,5 @@
 # ===== 秘密情報 =====
-.env
+# .env は別PC共有のためgit管理対象（本物のAPIキーを入れた場合は除外に戻すこと）
 .env.local
 .env.*.local
 
@@ -39,3 +39,4 @@ student_list.csv
 .claudeignore
 
 calibration
+提出課題

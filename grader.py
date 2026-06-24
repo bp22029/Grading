@@ -66,7 +66,7 @@ SKIP_ALREADY_GRADED = False
 # None  : 全員を採点する（本番運用）
 # 整数  : 指定人数まで採点したら処理を打ち切る（例: 3 で3人分のみ採点）
 # 注意: 「未提出」「採点済みスキップ」はカウントされず、実際に採点した人数のみカウントする
-GRADE_LIMIT = 10
+GRADE_LIMIT = None
 
 # ディレクトリ
 #SUBMITTED_DIR = Path("./Submitted files")           # 提出物のルート
